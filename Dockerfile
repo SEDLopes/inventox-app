@@ -17,12 +17,11 @@ RUN apt-get update && apt-get install -y \
 RUN a2enmod rewrite
 RUN a2enmod headers
 
-# Copiar todos os arquivos da aplicação
-COPY . /var/www/html/
-
-# Mover arquivos para estrutura correta
-RUN mv /var/www/html/frontend/* /var/www/html/ 2>/dev/null || true
-RUN mv /var/www/html/api /var/www/html/api 2>/dev/null || true
+# Copiar arquivos da aplicação na estrutura correta
+COPY frontend/ /var/www/html/
+COPY api/ /var/www/html/api/
+COPY .htaccess /var/www/html/.htaccess
+COPY index.php /var/www/html/index.php
 
 # Configurar permissões
 RUN chown -R www-data:www-data /var/www/html
