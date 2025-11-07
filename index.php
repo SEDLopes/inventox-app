@@ -1,10 +1,10 @@
 <?php
-// Redirecionar para frontend ou servir API
+// Ponto de entrada - Heroku buildpack usa /app como DocumentRoot
 $request_uri = $_SERVER['REQUEST_URI'] ?? '';
 
-// Se for uma requisição para API, não redirecionar
+// Se for API, processar diretamente
 if (strpos($request_uri, '/api/') === 0) {
-    // Deixar o Apache processar normalmente
+    // Deixar Apache processar normalmente
     return false;
 }
 
@@ -14,6 +14,6 @@ if (file_exists(__DIR__ . '/frontend/index.html')) {
     exit;
 }
 
-// Se não existir frontend, mostrar info PHP
+// Mostrar info PHP
 phpinfo();
 ?>
