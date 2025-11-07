@@ -1,5 +1,11 @@
-# Railway Apache Configuration
+# DigitalOcean Apache Configuration
 DirectoryIndex index.html index.php
+
+# Forçar processamento PHP
+AddType application/x-httpd-php .php
+<FilesMatch "\.php$">
+    SetHandler application/x-httpd-php
+</FilesMatch>
 
 # Rewrite rules para SPA
 RewriteEngine On
