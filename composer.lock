@@ -1,9 +1,8 @@
 {
     "_readme": [
-        "This file locks the dependencies of your project to a known state",
-        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies"
+        "This file locks the dependencies of your project to a known state"
     ],
-    "content-hash": "4a37a0af01715f99c0c3b6bfb6d9c1b1",
+    "content-hash": "e3b0c44298fc1c149afbf4c8996fb924",
     "packages": [],
     "packages-dev": [],
     "aliases": [],
@@ -12,7 +11,9 @@
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
-        "php": ">=8.1"
+        "php": ">=8.1",
+        "ext-pdo": "*",
+        "ext-pdo_mysql": "*"
     },
     "platform-dev": [],
     "plugin-api-version": "2.3.0"
