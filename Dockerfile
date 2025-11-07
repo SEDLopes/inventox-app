@@ -34,6 +34,9 @@ COPY api/ /var/www/html/api/
 COPY .htaccess /var/www/html/.htaccess
 COPY index.php /var/www/html/index.php
 
+# Verificar se arquivos foram copiados corretamente
+RUN ls -la /var/www/html/api/ | head -10
+
 # Configurar permissões
 RUN chown -R www-data:www-data /var/www/html
 RUN chmod -R 755 /var/www/html
