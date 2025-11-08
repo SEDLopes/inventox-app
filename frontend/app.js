@@ -530,16 +530,32 @@ async function showCountSetupModal() {
 
 // Fechar Modal de Configuração
 function closeCountSetupModal() {
-    document.getElementById('countSetupModal').classList.add('hidden');
-    // Limpar seleções
-    document.getElementById('setupCompanySelect').value = '';
-    document.getElementById('setupWarehouseSelect').value = '';
-    document.getElementById('setupWarehouseSelect').disabled = true;
-    document.getElementById('setupSessionSelect').value = '';
-    document.getElementById('setupSessionSelect').disabled = true;
-    document.getElementById('setupNewSessionForm').classList.add('hidden');
-    document.getElementById('setupCreateNewSessionBtn').classList.add('hidden');
+    const modal = document.getElementById('countSetupModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        // Limpar seleções
+        const companySelect = document.getElementById('setupCompanySelect');
+        const warehouseSelect = document.getElementById('setupWarehouseSelect');
+        const sessionSelect = document.getElementById('setupSessionSelect');
+        const newSessionForm = document.getElementById('setupNewSessionForm');
+        const createBtn = document.getElementById('setupCreateNewSessionBtn');
+        
+        if (companySelect) companySelect.value = '';
+        if (warehouseSelect) {
+            warehouseSelect.value = '';
+            warehouseSelect.disabled = true;
+        }
+        if (sessionSelect) {
+            sessionSelect.value = '';
+            sessionSelect.disabled = true;
+        }
+        if (newSessionForm) newSessionForm.classList.add('hidden');
+        if (createBtn) createBtn.classList.add('hidden');
+    }
 }
+
+// Tornar função global para onclick handlers
+window.closeCountSetupModal = closeCountSetupModal;
 
 // Carregar Empresas para o Modal
 async function loadCompaniesForSetup() {
@@ -681,8 +697,13 @@ async function handleWarehouseChange() {
 // Toggle Form de Nova Sessão
 function toggleNewSessionForm() {
     const form = document.getElementById('setupNewSessionForm');
-    form.classList.toggle('hidden');
+    if (form) {
+        form.classList.toggle('hidden');
+    }
 }
+
+// Tornar função global para onclick handlers
+window.toggleNewSessionForm = toggleNewSessionForm;
 
 // Confirmar Configuração e Iniciar Scanner
 async function confirmCountSetup() {
