@@ -89,17 +89,33 @@ try {
     
     // Configurar cookies de sessão ANTES de session_start()
     // IMPORTANTE: ini_set deve ser chamado ANTES de session_start()
-    ini_set('session.cookie_httponly', '1');
-    ini_set('session.cookie_samesite', 'Lax');
-    ini_set('session.use_strict_mode', '1');
-    ini_set('session.cookie_path', '/');
-    ini_set('session.cookie_domain', '');
-    ini_set('session.cookie_lifetime', 0); // Cookie de sessão (expira ao fechar navegador)
+    
     // Detectar HTTPS automaticamente
     $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || 
                (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ||
                (!empty($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] === 'on');
-    ini_set('session.cookie_secure', $isHttps ? '1' : '0');
+    
+    error_log("Login - HTTPS detected: " . ($isHttps ? 'YES' : 'NO') . 
+              ", HTTPS: " . ($_SERVER['HTTPS'] ?? 'not set') . 
+              ", X-Forwarded-Proto: " . ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? 'not set'));
+    
+    // Configurar cookies com SameSite=None para HTTPS (permite cross-site)
+    // SameSite=None requer Secure=1
+    if ($isHttps) {
+        ini_set('session.cookie_httponly', '1');
+        ini_set('session.cookie_samesite', 'None');
+        ini_set('session.cookie_secure', '1');
+    } else {
+        // HTTP local (desenvolvimento)
+        ini_set('session.cookie_httponly', '1');
+        ini_set('session.cookie_samesite', 'Lax');
+        ini_set('session.cookie_secure', '0');
+    }
+    
+    ini_set('session.use_strict_mode', '1');
+    ini_set('session.cookie_path', '/');
+    ini_set('session.cookie_domain', '');
+    ini_set('session.cookie_lifetime', 0); // Cookie de sessão (expira ao fechar navegador)
     
     // Configurar diretório de sessões (se não estiver configurado)
     $sessionPath = ini_get('session.save_path');
