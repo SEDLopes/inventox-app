@@ -1,9 +1,9 @@
-# Railway Dockerfile - SOLUÇÃO DEFINITIVA HEALTHCHECK
+# Railway Dockerfile - CORRIGIDO: Adicionar ao apache2.conf, não substituir
 FROM php:8.1-apache
 
 # Metadados
 LABEL maintainer="InventoX Railway"
-LABEL description="InventoX PHP Application - Final Solution"
+LABEL description="InventoX PHP Application - Apache Config Fixed"
 
 # Instalar dependências essenciais
 RUN apt-get update && apt-get install -y \
@@ -24,19 +24,25 @@ RUN apt-get update && apt-get install -y \
 RUN a2enmod rewrite
 RUN a2enmod headers
 
-# CONFIGURAÇÃO APACHE DEFINITIVA - SIMPLES E ROBUSTA
-# Substituir configuração padrão do Apache
-RUN echo 'ServerName localhost' > /etc/apache2/apache2.conf
-RUN echo 'Listen 80' >> /etc/apache2/apache2.conf
-RUN echo 'DocumentRoot /var/www/html' >> /etc/apache2/apache2.conf
-RUN echo 'DirectoryIndex index.php index.html' >> /etc/apache2/apache2.conf
-RUN echo '<Directory /var/www/html>' >> /etc/apache2/apache2.conf
-RUN echo '    Options Indexes FollowSymLinks' >> /etc/apache2/apache2.conf
-RUN echo '    AllowOverride All' >> /etc/apache2/apache2.conf
-RUN echo '    Require all granted' >> /etc/apache2/apache2.conf
-RUN echo '</Directory>' >> /etc/apache2/apache2.conf
-RUN echo 'LoadModule rewrite_module modules/mod_rewrite.so' >> /etc/apache2/apache2.conf
-RUN echo 'LoadModule headers_module modules/mod_headers.so' >> /etc/apache2/apache2.conf
+# CONFIGURAÇÃO APACHE - ADICIONAR, NÃO SUBSTITUIR
+# Adicionar configurações ao final do apache2.conf existente
+RUN echo '' >> /etc/apache2/apache2.conf && \
+    echo '# InventoX Railway Configuration' >> /etc/apache2/apache2.conf && \
+    echo 'ServerName localhost' >> /etc/apache2/apache2.conf && \
+    echo 'Listen 80' >> /etc/apache2/apache2.conf && \
+    echo '' >> /etc/apache2/apache2.conf && \
+    echo '<VirtualHost *:80>' >> /etc/apache2/apache2.conf && \
+    echo '    ServerAdmin webmaster@localhost' >> /etc/apache2/apache2.conf && \
+    echo '    DocumentRoot /var/www/html' >> /etc/apache2/apache2.conf && \
+    echo '    DirectoryIndex index.php index.html' >> /etc/apache2/apache2.conf && \
+    echo '    <Directory /var/www/html>' >> /etc/apache2/apache2.conf && \
+    echo '        Options Indexes FollowSymLinks' >> /etc/apache2/apache2.conf && \
+    echo '        AllowOverride All' >> /etc/apache2/apache2.conf && \
+    echo '        Require all granted' >> /etc/apache2/apache2.conf && \
+    echo '    </Directory>' >> /etc/apache2/apache2.conf && \
+    echo '    ErrorLog ${APACHE_LOG_DIR}/error.log' >> /etc/apache2/apache2.conf && \
+    echo '    CustomLog ${APACHE_LOG_DIR}/access.log combined' >> /etc/apache2/apache2.conf && \
+    echo '</VirtualHost>' >> /etc/apache2/apache2.conf
 
 # Copiar arquivos da aplicação
 COPY frontend/ /var/www/html/
