@@ -1,26 +1,17 @@
-# DigitalOcean Apache Configuration - Forçar PHP
+# Railway Apache Configuration - SIMPLIFICADO
 DirectoryIndex index.html index.php
 
-# FORÇAR PROCESSAMENTO PHP - MÚLTIPLAS ABORDAGENS
-AddType application/x-httpd-php .php
-AddHandler application/x-httpd-php .php
-
-<FilesMatch "\.php$">
-    SetHandler application/x-httpd-php
-    ForceType application/x-httpd-php
-</FilesMatch>
-
-# Rewrite rules
+# Rewrite rules básicas
 RewriteEngine On
 
-# API routes - processar PHP diretamente
+# Redirecionar root para frontend se não for API
+RewriteCond %{REQUEST_URI} ^/$
+RewriteRule ^$ /frontend/ [R=301,L]
+
+# API routes
 RewriteCond %{REQUEST_URI} ^/api/
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^api/(.*)$ api/$1 [L,QSA]
-
-# Redirecionar root para frontend
-RewriteCond %{REQUEST_URI} ^/$
-RewriteRule ^$ /frontend/ [R=301,L]
 
 # Frontend routes (SPA)
 RewriteCond %{REQUEST_FILENAME} !-f
@@ -33,7 +24,6 @@ RewriteRule ^frontend/.*$ /frontend/index.html [L]
     Header always set Access-Control-Allow-Origin "*"
     Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
     Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
-    Header always set Access-Control-Allow-Credentials "true"
 </IfModule>
 
 # Handle OPTIONS requests

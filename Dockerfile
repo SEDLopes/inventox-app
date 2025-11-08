@@ -1,15 +1,16 @@
-# DigitalOcean Dockerfile - FORÇAR DETECÇÃO
+# Railway Dockerfile - CORRIGIR HEALTHCHECK
 FROM php:8.1-apache
 
-# Metadados para forçar detecção
+# Metadados
 LABEL maintainer="InventoX"
-LABEL description="InventoX PHP Application"
+LABEL description="InventoX PHP Application for Railway"
 
 # Instalar extensões PHP necessárias
 RUN apt-get update && apt-get install -y \
     libzip-dev \
     zip \
     unzip \
+    curl \
     && docker-php-ext-install \
     pdo \
     pdo_mysql \
@@ -21,12 +22,9 @@ RUN apt-get update && apt-get install -y \
 RUN a2enmod rewrite
 RUN a2enmod headers
 
-# CONFIGURAÇÃO APACHE NATIVA - FORÇAR PHP
-RUN echo 'LoadModule php_module /usr/local/lib/php/extensions/no-debug-non-zts-20210902/php.so' >> /etc/apache2/apache2.conf || true
-RUN echo 'AddType application/x-httpd-php .php' >> /etc/apache2/apache2.conf
-RUN echo '<FilesMatch \.php$>' >> /etc/apache2/apache2.conf
-RUN echo '    SetHandler application/x-httpd-php' >> /etc/apache2/apache2.conf
-RUN echo '</FilesMatch>' >> /etc/apache2/apache2.conf
+# CONFIGURAÇÃO APACHE SIMPLIFICADA PARA RAILWAY
+RUN echo 'ServerName localhost' >> /etc/apache2/apache2.conf
+RUN echo 'Listen 80' >> /etc/apache2/apache2.conf
 
 # Configurar DocumentRoot
 RUN echo 'DocumentRoot /var/www/html' >> /etc/apache2/apache2.conf
@@ -41,9 +39,11 @@ RUN echo '</Directory>' >> /etc/apache2/apache2.conf
 COPY frontend/ /var/www/html/
 COPY api/ /var/www/html/api/
 COPY .htaccess /var/www/html/.htaccess
+COPY index.php /var/www/html/index.php
 
 # Verificar arquivos copiados
-RUN ls -la /var/www/html/api/ | head -10
+RUN ls -la /var/www/html/ | head -10
+RUN ls -la /var/www/html/api/ | head -5
 
 # Configurar permissões
 RUN chown -R www-data:www-data /var/www/html
@@ -52,7 +52,7 @@ RUN chmod -R 755 /var/www/html
 # Criar pasta de uploads
 RUN mkdir -p /var/www/html/uploads && chown www-data:www-data /var/www/html/uploads
 
-# Configurar PHP
+# Configurar PHP básico
 RUN echo 'engine = On' >> /usr/local/etc/php/php.ini
 RUN echo 'short_open_tag = Off' >> /usr/local/etc/php/php.ini
 RUN echo 'default_mimetype = "text/html"' >> /usr/local/etc/php/php.ini
@@ -64,9 +64,9 @@ WORKDIR /var/www/html
 # Expor porta 80
 EXPOSE 80
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost/api/health.php || exit 1
+# Health check simples
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost/ || exit 1
 
 # Comando para iniciar Apache
 CMD ["apache2-foreground"]
