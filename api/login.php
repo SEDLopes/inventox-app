@@ -95,7 +95,11 @@ try {
     ini_set('session.cookie_path', '/');
     ini_set('session.cookie_domain', '');
     ini_set('session.cookie_lifetime', 0); // Cookie de sessão (expira ao fechar navegador)
-    ini_set('session.cookie_secure', '0'); // 0 para HTTP local, 1 para HTTPS em produção
+    // Detectar HTTPS automaticamente
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || 
+               (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ||
+               (!empty($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] === 'on');
+    ini_set('session.cookie_secure', $isHttps ? '1' : '0');
     
     // Configurar diretório de sessões (se não estiver configurado)
     $sessionPath = ini_get('session.save_path');
