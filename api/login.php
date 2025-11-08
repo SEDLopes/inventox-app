@@ -95,38 +95,25 @@ try {
                (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ||
                (!empty($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] === 'on');
     
-    error_log("Login - PHP Version: " . PHP_VERSION . 
-              ", HTTPS detected: " . ($isHttps ? 'YES' : 'NO') . 
-              ", HTTPS: " . ($_SERVER['HTTPS'] ?? 'not set') . 
-              ", X-Forwarded-Proto: " . ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? 'not set'));
-    
-    // Configurar cookies básicos primeiro
+    // Configurar cookies básicos
     ini_set('session.cookie_httponly', '1');
     ini_set('session.use_strict_mode', '1');
     ini_set('session.cookie_path', '/');
     ini_set('session.cookie_domain', '');
     ini_set('session.cookie_lifetime', 0); // Cookie de sessão (expira ao fechar navegador)
-    
-    // Configurar Secure flag baseado em HTTPS
     ini_set('session.cookie_secure', $isHttps ? '1' : '0');
     
     // SameSite só está disponível no PHP 7.3+
-    // Em versões anteriores, usar session_set_cookie_params
     if (PHP_VERSION_ID >= 70300) {
-        // PHP 7.3+ suporta ini_set para SameSite
         try {
             if ($isHttps) {
                 ini_set('session.cookie_samesite', 'None');
             } else {
                 ini_set('session.cookie_samesite', 'Lax');
             }
-            error_log("Login - SameSite configured via ini_set");
         } catch (Exception $e) {
-            error_log("Login - Failed to set SameSite via ini_set: " . $e->getMessage());
+            error_log("Login - Failed to set SameSite: " . $e->getMessage());
         }
-    } else {
-        // PHP < 7.3: usar session_set_cookie_params antes de session_start
-        error_log("Login - PHP < 7.3, using session_set_cookie_params");
     }
     
     // Configurar diretório de sessões (se não estiver configurado)
@@ -157,15 +144,10 @@ try {
     // Garantir que a sessão foi escrita (PHP faz isso automaticamente ao finalizar script)
     // Mas vamos verificar que os dados estão realmente na sessão
     
-    // Gerar token de autenticação como fallback
-    $authToken = bin2hex(random_bytes(32));
-    $_SESSION['auth_token'] = $authToken;
-    
     // Log de login para debug
     $cookieName = session_name();
     $sessionId = session_id();
     error_log("Login successful - Session ID: " . $sessionId . 
-              ", Auth Token: " . $authToken . 
               ", Cookie name: " . $cookieName . 
               ", User: {$user['username']}, " .
               "Session has user_id: " . (isset($_SESSION['user_id']) ? 'YES' : 'NO'));
@@ -187,8 +169,7 @@ try {
             'username' => $user['username'],
             'email' => $user['email'],
             'role' => $user['role']
-        ],
-        'auth_token' => $authToken // Token como fallback se cookies não funcionarem
+        ]
     ]);
 
 } catch (PDOException $e) {
