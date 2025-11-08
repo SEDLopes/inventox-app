@@ -90,12 +90,14 @@ function showDashboard(username) {
     
     // Verificar role do utilizador e mostrar tabs apropriadas
     const userRole = sessionStorage.getItem('userRole');
+    const usersTabBtn = document.getElementById('usersTabBtn');
+    const historyTabBtn = document.getElementById('historyTabBtn');
     if (userRole === 'admin') {
-        document.getElementById('usersTabBtn').classList.remove('hidden');
-        document.getElementById('historyTabBtn').classList.remove('hidden');
+        if (usersTabBtn) usersTabBtn.classList.remove('hidden');
+        if (historyTabBtn) historyTabBtn.classList.remove('hidden');
     } else {
-        document.getElementById('usersTabBtn').classList.add('hidden');
-        document.getElementById('historyTabBtn').classList.add('hidden');
+        if (usersTabBtn) usersTabBtn.classList.add('hidden');
+        if (historyTabBtn) historyTabBtn.classList.add('hidden');
     }
     
     // Carregar dados do dashboard
@@ -186,13 +188,20 @@ function initEventListeners() {
     }
     
     // Import
-    document.getElementById('importFile').addEventListener('change', (e) => {
-        document.getElementById('uploadBtn').disabled = !e.target.files.length;
-    });
-    document.getElementById('uploadBtn').addEventListener('click', uploadFile);
+    const importFile = document.getElementById('importFile');
+    const uploadBtn = document.getElementById('uploadBtn');
+    if (importFile && uploadBtn) {
+        importFile.addEventListener('change', (e) => {
+            uploadBtn.disabled = !e.target.files.length;
+        });
+        uploadBtn.addEventListener('click', uploadFile);
+    }
     
     // Refresh sessions
-    document.getElementById('refreshSessionsBtn').addEventListener('click', loadSessions);
+    const refreshSessionsBtn = document.getElementById('refreshSessionsBtn');
+    if (refreshSessionsBtn) {
+        refreshSessionsBtn.addEventListener('click', loadSessions);
+    }
 
     // Items - filtro de stock baixo
     const lowStockCheckbox = document.getElementById('itemsLowStockOnly');
