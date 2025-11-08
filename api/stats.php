@@ -107,9 +107,16 @@ try {
     
 } catch (PDOException $e) {
     error_log("Stats API error: " . $e->getMessage());
+    error_log("Stats API error trace: " . $e->getTraceAsString());
     sendJsonResponse([
         'success' => false,
-        'message' => 'Erro ao obter estatísticas'
+        'message' => 'Erro ao obter estatísticas: ' . $e->getMessage()
+    ], 500);
+} catch (Exception $e) {
+    error_log("Stats API general error: " . $e->getMessage());
+    sendJsonResponse([
+        'success' => false,
+        'message' => 'Erro ao obter estatísticas: ' . $e->getMessage()
     ], 500);
 }
 
