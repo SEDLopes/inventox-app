@@ -113,8 +113,12 @@ try {
         (2, 'Electrónicos', 'Equipamentos electrónicos'),
         (3, 'Alimentação', 'Produtos alimentares')",
 
-        "INSERT IGNORE INTO users (username, email, password_hash, role) VALUES 
-        ('admin', 'admin@inventox.com', '$2y$10\$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin')"
+        "INSERT INTO users (username, email, password_hash, role, is_active) VALUES 
+        ('admin', 'admin@inventox.com', '$2y$10\$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', 1)
+        ON DUPLICATE KEY UPDATE 
+        password_hash = VALUES(password_hash),
+        is_active = 1,
+        role = 'admin'"
     ];
 
     $results = [];
