@@ -1,9 +1,9 @@
-# Railway Dockerfile - SOLUÇÃO FINAL: Usar config padrão do Apache
+# Railway Dockerfile - COM DEBUG E VERIFICAÇÃO
 FROM php:8.1-apache
 
 # Metadados
 LABEL maintainer="InventoX Railway"
-LABEL description="InventoX PHP Application - Final Solution"
+LABEL description="InventoX PHP Application - With Debug"
 
 # Instalar dependências essenciais
 RUN apt-get update && apt-get install -y \
@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     wget \
     procps \
+    netcat-openbsd \
     && docker-php-ext-install \
     pdo \
     pdo_mysql \
@@ -25,7 +26,6 @@ RUN a2enmod rewrite
 RUN a2enmod headers
 
 # CONFIGURAÇÃO APACHE MÍNIMA - Apenas ServerName
-# Não adicionar VirtualHost - usar o padrão da imagem
 RUN echo 'ServerName localhost' >> /etc/apache2/apache2.conf
 
 # Copiar arquivos da aplicação
@@ -74,9 +74,23 @@ WORKDIR /var/www/html
 # Expor porta
 EXPOSE 80
 
-# Health check SIMPLES - apenas curl
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost/ || exit 1
+# Script de inicialização com debug
+RUN echo '#!/bin/bash' > /start.sh && \
+    echo 'set -e' >> /start.sh && \
+    echo 'echo "🚀 Iniciando InventoX Railway..."' >> /start.sh && \
+    echo 'echo "📂 Verificando arquivos..."' >> /start.sh && \
+    echo 'ls -la /var/www/html/' >> /start.sh && \
+    echo 'echo "🔧 Testando PHP..."' >> /start.sh && \
+    echo 'php -v' >> /start.sh && \
+    echo 'echo "🌐 Testando Apache config..."' >> /start.sh && \
+    echo 'apache2ctl configtest' >> /start.sh && \
+    echo 'echo "🌐 Iniciando Apache..."' >> /start.sh && \
+    echo 'exec apache2-foreground' >> /start.sh && \
+    chmod +x /start.sh
 
-# Comando DIRETO - sem script complexo
-CMD ["apache2-foreground"]
+# Health check com múltiplas tentativas
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
+    CMD curl -f http://localhost/ || curl -f http://127.0.0.1/ || nc -z localhost 80 || exit 1
+
+# Comando de inicialização com debug
+CMD ["/start.sh"]
