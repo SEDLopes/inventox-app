@@ -152,7 +152,10 @@ function requireAuth() {
     // Debug: verificar cookies recebidos
     $cookieName = session_name();
     $hasSessionCookie = isset($_COOKIE[$cookieName]);
-    error_log("requireAuth - Session ID from cookie: " . ($hasSessionCookie ? $_COOKIE[$cookieName] : 'NOT SET') . ", Session ID active: " . session_id());
+    $requestUri = $_SERVER['REQUEST_URI'] ?? 'unknown';
+    error_log("requireAuth - Session ID from cookie: " . ($hasSessionCookie ? $_COOKIE[$cookieName] : 'NOT SET') . 
+              ", Session ID active: " . session_id() . 
+              ", Request URI: " . $requestUri);
     
     // Verificar se a sessão está realmente ativa e tem dados
     if (!isset($_SESSION['user_id']) || !isset($_SESSION['username'])) {
@@ -162,10 +165,18 @@ function requireAuth() {
                   ", Cookie name: " . session_name() . 
                   ", Has cookie: " . ($hasSessionCookie ? 'YES' : 'NO') . 
                   ", User ID: " . ($_SESSION['user_id'] ?? 'not set') . 
-                  ", Session data: " . print_r($_SESSION, true));
+                  ", All cookies received: " . print_r($_COOKIE, true) .
+                  ", Session data: " . print_r($_SESSION, true) .
+                  ", Request URI: " . $requestUri);
         sendJsonResponse([
             'success' => false,
-            'message' => 'Autenticação necessária'
+            'message' => 'Autenticação necessária',
+            'debug' => [
+                'session_id' => session_id(),
+                'has_cookie' => $hasSessionCookie,
+                'cookie_name' => $cookieName,
+                'request_uri' => $requestUri
+            ]
         ], 401);
     }
 }
