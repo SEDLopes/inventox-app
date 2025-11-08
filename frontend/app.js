@@ -2551,7 +2551,8 @@ async function openCategoryModal(categoryId = null) {
     
     // Limpar formulário
     form.reset();
-    document.getElementById('categoryId').value = '';
+    const categoryIdEl = document.getElementById('categoryId');
+    if (categoryIdEl) categoryIdEl.value = '';
     
     if (categoryId) {
         // Editar categoria existente
@@ -2582,9 +2583,12 @@ async function openCategoryModal(categoryId = null) {
             
             if (data.success && data.category) {
                 const category = data.category;
-                document.getElementById('categoryId').value = category.id;
-                document.getElementById('categoryName').value = category.name;
-                document.getElementById('categoryDescription').value = category.description || '';
+                const categoryIdEl = document.getElementById('categoryId');
+                const categoryNameEl = document.getElementById('categoryName');
+                const categoryDescriptionEl = document.getElementById('categoryDescription');
+                if (categoryIdEl) categoryIdEl.value = category.id;
+                if (categoryNameEl) categoryNameEl.value = category.name;
+                if (categoryDescriptionEl) categoryDescriptionEl.value = category.description || '';
             }
         } catch (error) {
             hideLoading();
