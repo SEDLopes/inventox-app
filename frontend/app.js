@@ -1328,13 +1328,17 @@ async function createSession() {
         return;
     }
     
-    const name = nameEl.value;
-    const description = descriptionEl.value;
+    const name = nameEl.value.trim();
+    const description = descriptionEl.value.trim();
     
-    // Validação
-    const validation = validateSession(name, description);
-    if (!validation.valid) {
-        showToast(validation.message, 'error');
+    // Validação básica
+    if (!name || name.length === 0) {
+        showToast('Nome da sessão é obrigatório', 'error');
+        return;
+    }
+    
+    if (name.length < 3) {
+        showToast('Nome da sessão deve ter pelo menos 3 caracteres', 'error');
         return;
     }
     

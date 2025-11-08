@@ -187,7 +187,7 @@ function requireAuth() {
     
     // Se não há sessão mas há token, tentar validar token
     if ((!isset($_SESSION['user_id']) || !isset($_SESSION['username'])) && $authToken) {
-        // Buscar sessão pelo token
+        // Buscar sessão pelo token nos arquivos de sessão PHP
         $sessionPath = session_save_path();
         if (empty($sessionPath)) {
             $sessionPath = sys_get_temp_dir();
@@ -195,13 +195,35 @@ function requireAuth() {
         
         // Tentar encontrar sessão com este token
         $sessionFiles = glob($sessionPath . '/sess_*');
-        foreach ($sessionFiles as $sessionFile) {
-            $sessionData = file_get_contents($sessionFile);
-            if (strpos($sessionData, 'auth_token|s:' . strlen($authToken) . ':"' . $authToken) !== false) {
-                // Encontrou sessão com este token, carregar dados
-                session_decode($sessionData);
-                error_log("requireAuth - Session restored from token");
-                break;
+        if ($sessionFiles && is_array($sessionFiles)) {
+            foreach ($sessionFiles as $sessionFile) {
+                if (!is_file($sessionFile) || !is_readable($sessionFile)) {
+                    continue;
+                }
+                
+                $sessionData = @file_get_contents($sessionFile);
+                if ($sessionData === false) {
+                    continue;
+                }
+                
+                // Verificar se o token está na sessão
+                if (strpos($sessionData, 'auth_token') !== false && strpos($sessionData, $authToken) !== false) {
+                    // Tentar decodificar a sessão
+                    $sessionId = basename($sessionFile);
+                    if (strpos($sessionId, 'sess_') === 0) {
+                        $sessionId = substr($sessionId, 5);
+                        // Tentar restaurar a sessão
+                        if (session_status() === PHP_SESSION_ACTIVE) {
+                            session_write_close();
+                        }
+                        session_id($sessionId);
+                        session_start();
+                        if (isset($_SESSION['auth_token']) && $_SESSION['auth_token'] === $authToken) {
+                            error_log("requireAuth - Session restored from token");
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
