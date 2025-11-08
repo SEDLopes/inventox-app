@@ -1860,7 +1860,8 @@ async function loadItems(page = 1, search = '') {
     try {
         showLoading();
         currentItemsPage = page;
-        currentItemsSearch = search || document.getElementById('itemsSearch').value;
+        const itemsSearchEl = document.getElementById('itemsSearch');
+        currentItemsSearch = search || (itemsSearchEl ? itemsSearchEl.value : '');
         
         const params = new URLSearchParams({
             page: page,
