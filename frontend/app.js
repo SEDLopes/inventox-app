@@ -8,6 +8,12 @@ const API_BASE = `${location.origin.replace(/\/$/, '')}/api`;
 let currentSessionId = null;
 let currentItemId = null;
 let currentBarcode = null;
+let currentItemsPage = 1;
+let currentItemsSearch = '';
+let currentUsersPage = 1;
+let currentUsersSearch = '';
+let currentHistoryPage = 1;
+let currentCategoriesSearch = '';
 let scanner = null;
 let codeReader = null;
 let isMobileDevice = false;
@@ -233,6 +239,47 @@ function initEventListeners() {
     const categoryForm = document.getElementById('categoryForm');
     if (categoryForm) {
         categoryForm.addEventListener('submit', saveCategory);
+    }
+    const categorySearch = document.getElementById('categorySearch');
+    if (categorySearch) {
+        categorySearch.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                loadCategories();
+            }
+        });
+        categorySearch.addEventListener('input', (e) => {
+            // Debounce: carregar após 500ms sem digitar
+            clearTimeout(categorySearch.searchTimeout);
+            categorySearch.searchTimeout = setTimeout(() => {
+                loadCategories();
+            }, 500);
+        });
+    }
+    
+    // Companies management
+    const createCompanyBtn = document.getElementById('createCompanyBtn');
+    if (createCompanyBtn) {
+        createCompanyBtn.addEventListener('click', () => openCompanyModal());
+    }
+    
+    // Warehouses management
+    const createWarehouseBtn = document.getElementById('createWarehouseBtn');
+    if (createWarehouseBtn) {
+        createWarehouseBtn.addEventListener('click', () => openWarehouseModal());
+    }
+    
+    // History filters
+    const historyType = document.getElementById('historyType');
+    const historyDateFrom = document.getElementById('historyDateFrom');
+    const historyDateTo = document.getElementById('historyDateTo');
+    if (historyType) {
+        historyType.addEventListener('change', () => loadStockHistory(1));
+    }
+    if (historyDateFrom) {
+        historyDateFrom.addEventListener('change', () => loadStockHistory(1));
+    }
+    if (historyDateTo) {
+        historyDateTo.addEventListener('change', () => loadStockHistory(1));
     }
     
     // Users management (admin only)
@@ -2501,7 +2548,16 @@ async function loadCategoriesForSelect() {
 // Carregar Categorias
 async function loadCategories() {
     try {
-        const response = await fetch(`${API_BASE}/categories.php`, {
+        const search = document.getElementById('categorySearch')?.value || '';
+        currentCategoriesSearch = search;
+        
+        const params = new URLSearchParams();
+        if (search) {
+            params.append('search', search);
+        }
+        
+        const url = `${API_BASE}/categories.php${params.toString() ? '?' + params.toString() : ''}`;
+        const response = await fetch(url, {
             credentials: 'include'
         });
         
@@ -2522,6 +2578,8 @@ async function loadCategories() {
         
         if (data.success) {
             const categoriesList = document.getElementById('categoriesList');
+            if (!categoriesList) return;
+            
             categoriesList.innerHTML = '';
             
             if (data.categories && data.categories.length > 0) {
