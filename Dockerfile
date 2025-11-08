@@ -1,9 +1,9 @@
-# Railway Dockerfile - CORRIGIDO: Sem Listen 80 duplicado
+# Railway Dockerfile - SOLUÇÃO FINAL: Usar config padrão do Apache
 FROM php:8.1-apache
 
 # Metadados
 LABEL maintainer="InventoX Railway"
-LABEL description="InventoX PHP Application - Apache Fixed"
+LABEL description="InventoX PHP Application - Final Solution"
 
 # Instalar dependências essenciais
 RUN apt-get update && apt-get install -y \
@@ -24,24 +24,9 @@ RUN apt-get update && apt-get install -y \
 RUN a2enmod rewrite
 RUN a2enmod headers
 
-# CONFIGURAÇÃO APACHE - ADICIONAR, SEM Listen 80 (já existe)
-# Adicionar configurações ao final do apache2.conf existente
-RUN echo '' >> /etc/apache2/apache2.conf && \
-    echo '# InventoX Railway Configuration' >> /etc/apache2/apache2.conf && \
-    echo 'ServerName localhost' >> /etc/apache2/apache2.conf && \
-    echo '' >> /etc/apache2/apache2.conf && \
-    echo '<VirtualHost *:80>' >> /etc/apache2/apache2.conf && \
-    echo '    ServerAdmin webmaster@localhost' >> /etc/apache2/apache2.conf && \
-    echo '    DocumentRoot /var/www/html' >> /etc/apache2/apache2.conf && \
-    echo '    DirectoryIndex index.php index.html' >> /etc/apache2/apache2.conf && \
-    echo '    <Directory /var/www/html>' >> /etc/apache2/apache2.conf && \
-    echo '        Options Indexes FollowSymLinks' >> /etc/apache2/apache2.conf && \
-    echo '        AllowOverride All' >> /etc/apache2/apache2.conf && \
-    echo '        Require all granted' >> /etc/apache2/apache2.conf && \
-    echo '    </Directory>' >> /etc/apache2/apache2.conf && \
-    echo '    ErrorLog ${APACHE_LOG_DIR}/error.log' >> /etc/apache2/apache2.conf && \
-    echo '    CustomLog ${APACHE_LOG_DIR}/access.log combined' >> /etc/apache2/apache2.conf && \
-    echo '</VirtualHost>' >> /etc/apache2/apache2.conf
+# CONFIGURAÇÃO APACHE MÍNIMA - Apenas ServerName
+# Não adicionar VirtualHost - usar o padrão da imagem
+RUN echo 'ServerName localhost' >> /etc/apache2/apache2.conf
 
 # Copiar arquivos da aplicação
 COPY frontend/ /var/www/html/
