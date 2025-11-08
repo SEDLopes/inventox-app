@@ -1,8 +1,16 @@
-# DigitalOcean Apache Configuration
-# Buildpack Heroku usa PHP-FPM automaticamente
-DirectoryIndex index.php index.html
+# DigitalOcean Apache Configuration - Forçar PHP
+DirectoryIndex index.html index.php
 
-# Habilitar mod_rewrite
+# FORÇAR PROCESSAMENTO PHP - MÚLTIPLAS ABORDAGENS
+AddType application/x-httpd-php .php
+AddHandler application/x-httpd-php .php
+
+<FilesMatch "\.php$">
+    SetHandler application/x-httpd-php
+    ForceType application/x-httpd-php
+</FilesMatch>
+
+# Rewrite rules
 RewriteEngine On
 
 # API routes - processar PHP diretamente

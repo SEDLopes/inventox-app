@@ -1,5 +1,19 @@
-# Configuração API - Buildpack Heroku processa PHP automaticamente
-# Não precisa de configuração especial, o buildpack cuida disso
+# API Directory - FORÇAR PHP ABSOLUTO
+# Múltiplas abordagens para garantir processamento PHP
+
+AddType application/x-httpd-php .php
+AddHandler application/x-httpd-php .php
+
+<FilesMatch "\.php$">
+    SetHandler application/x-httpd-php
+    ForceType application/x-httpd-php
+</FilesMatch>
+
+# Configuração específica para arquivos PHP
+<Files "*.php">
+    SetHandler application/x-httpd-php
+    ForceType application/x-httpd-php
+</Files>
 
 # CORS Headers
 <IfModule mod_headers.c>
