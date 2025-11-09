@@ -253,9 +253,15 @@ function initEventListeners() {
         sessionSelect.addEventListener('change', (e) => {
             currentSessionId = e.target.value;
             if (currentSessionId) {
-                loadSessionInfo(currentSessionId);
+                loadSessionInfo(currentSessionId, true); // Mostrar detalhes quando selecionado manualmente
             }
         });
+    }
+    
+    // Event listener para fechar o card de detalhes da sessão
+    const closeSessionDetailsBtn = document.getElementById('closeSessionDetails');
+    if (closeSessionDetailsBtn) {
+        closeSessionDetailsBtn.addEventListener('click', closeSessionDetails);
     }
     
     // Item count
@@ -1591,7 +1597,7 @@ async function saveCount() {
                         // Usar a primeira sessão aberta encontrada
                         currentSessionId = openSession.id;
                         document.getElementById('sessionSelect').value = openSession.id;
-                        loadSessionInfo(openSession.id);
+                        loadSessionInfo(openSession.id, false); // Não mostrar detalhes automaticamente
                         showToast(`Usando sessão: ${openSession.name}`, 'info');
                     } else {
                         // Criar uma sessão automática se não houver nenhuma aberta
@@ -1688,9 +1694,9 @@ async function saveCount() {
         if (data.success) {
             showToast('Contagem guardada com sucesso', 'success');
             
-            // Atualizar informações da sessão
+            // Atualizar informações da sessão (sem mostrar detalhes)
             if (currentSessionId) {
-                loadSessionInfo(currentSessionId);
+                loadSessionInfo(currentSessionId, false);
             }
             
             // Limpar campos mas manter o card visível para permitir nova contagem
@@ -1757,7 +1763,7 @@ async function loadSessions() {
                             </p>
                         </div>
                         <div class="flex space-x-2">
-                            <button onclick="loadSessionInfo(${session.id})" 
+                            <button onclick="loadSessionInfo(${session.id}, true)" 
                                     class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">
                                 Ver
                             </button>
