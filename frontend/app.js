@@ -207,11 +207,23 @@ function initEventListeners() {
     
     const createSessionForm = document.getElementById('createSessionForm');
     if (createSessionForm) {
-        createSessionForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            createSession();
-        });
+        // Remover event listeners duplicados se existirem
+        const newForm = createSessionForm.cloneNode(true);
+        createSessionForm.parentNode.replaceChild(newForm, createSessionForm);
+        
+        // Adicionar event listener ao novo formulário
+        const form = document.getElementById('createSessionForm');
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Verificar se o formulário foi realmente submetido pelo utilizador
+                const submitButton = e.submitter || e.target.querySelector('button[type="submit"]');
+                if (submitButton && submitButton.type === 'submit') {
+                    createSession();
+                }
+            });
+        }
     }
     
     const closeCreateSessionBtn = document.getElementById('closeCreateSession');
