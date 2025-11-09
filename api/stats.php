@@ -47,26 +47,41 @@ try {
     $stmt = $db->query("SELECT COUNT(*) as total FROM categories");
     $stats['total_categories'] = intval($stmt->fetch()['total']);
     
-    // Sessões abertas
-    $stmt = $db->query("SELECT COUNT(*) as total FROM inventory_sessions WHERE status = 'aberta'");
-    $stats['open_sessions'] = intval($stmt->fetch()['total']);
-    
-    // Sessões fechadas
-    $stmt = $db->query("SELECT COUNT(*) as total FROM inventory_sessions WHERE status = 'fechada'");
-    $stats['closed_sessions'] = intval($stmt->fetch()['total']);
+    // Verificar se a tabela inventory_sessions existe
+    $checkTable = $db->query("SHOW TABLES LIKE 'inventory_sessions'");
+    if ($checkTable->rowCount() > 0) {
+        // Sessões abertas
+        $stmt = $db->query("SELECT COUNT(*) as total FROM inventory_sessions WHERE status = 'aberta'");
+        $stats['open_sessions'] = intval($stmt->fetch()['total']);
+        
+        // Sessões fechadas
+        $stmt = $db->query("SELECT COUNT(*) as total FROM inventory_sessions WHERE status = 'fechada'");
+        $stats['closed_sessions'] = intval($stmt->fetch()['total']);
+    } else {
+        // Tabela não existe, usar valores padrão
+        $stats['open_sessions'] = 0;
+        $stats['closed_sessions'] = 0;
+    }
     
     // Valor total do inventário (soma de quantity * unit_price)
     $stmt = $db->query("SELECT SUM(quantity * unit_price) as total_value FROM items WHERE quantity > 0");
     $result = $stmt->fetch();
     $stats['total_inventory_value'] = floatval($result['total_value'] ?? 0);
     
-    // Movimentos de stock (últimos 30 dias)
-    $stmt = $db->query("
-        SELECT COUNT(*) as total 
-        FROM stock_movements 
-        WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-    ");
-    $stats['movements_last_30_days'] = intval($stmt->fetch()['total']);
+    // Verificar se a tabela stock_movements existe
+    $checkTable = $db->query("SHOW TABLES LIKE 'stock_movements'");
+    if ($checkTable->rowCount() > 0) {
+        // Movimentos de stock (últimos 30 dias)
+        $stmt = $db->query("
+            SELECT COUNT(*) as total 
+            FROM stock_movements 
+            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        ");
+        $stats['movements_last_30_days'] = intval($stmt->fetch()['total']);
+    } else {
+        // Tabela não existe, usar valor padrão
+        $stats['movements_last_30_days'] = 0;
+    }
     
     // Top 5 categorias com mais artigos
     $stmt = $db->query("
@@ -108,20 +123,26 @@ try {
         $stats['low_stock_list'] = [];
     }
     
-    // Últimas sessões de inventário
-    $stmt = $db->query("
-        SELECT 
-            s.*,
-            u.username as created_by,
-            COUNT(c.id) as total_counts
-        FROM inventory_sessions s
-        LEFT JOIN users u ON s.user_id = u.id
-        LEFT JOIN inventory_counts c ON s.id = c.session_id
-        GROUP BY s.id
-        ORDER BY s.started_at DESC
-        LIMIT 5
-    ");
-    $stats['recent_sessions'] = $stmt->fetchAll();
+    // Últimas sessões de inventário (verificar se tabela existe)
+    $checkTable = $db->query("SHOW TABLES LIKE 'inventory_sessions'");
+    if ($checkTable->rowCount() > 0) {
+        $stmt = $db->query("
+            SELECT 
+                s.*,
+                u.username as created_by,
+                COUNT(c.id) as total_counts
+            FROM inventory_sessions s
+            LEFT JOIN users u ON s.user_id = u.id
+            LEFT JOIN inventory_counts c ON s.id = c.session_id
+            GROUP BY s.id
+            ORDER BY s.started_at DESC
+            LIMIT 5
+        ");
+        $stats['recent_sessions'] = $stmt->fetchAll();
+    } else {
+        // Tabela não existe, usar array vazio
+        $stats['recent_sessions'] = [];
+    }
     
     sendJsonResponse([
         'success' => true,

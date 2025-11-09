@@ -9,6 +9,9 @@ require_once __DIR__ . '/db.php';
 // Verificar autenticação
 requireAuth();
 
+// Rate limiting
+requireRateLimit();
+
 $method = $_SERVER['REQUEST_METHOD'];
 
 // Apenas GET permitido
@@ -21,6 +24,22 @@ if ($method !== 'GET') {
 
 try {
     $db = getDB();
+    
+    // Verificar se a tabela stock_movements existe
+    $checkTable = $db->query("SHOW TABLES LIKE 'stock_movements'");
+    if ($checkTable->rowCount() == 0) {
+        // Tabela não existe, retornar vazio
+        sendJsonResponse([
+            'success' => true,
+            'movements' => [],
+            'pagination' => [
+                'page' => 1,
+                'limit' => 20,
+                'total' => 0,
+                'pages' => 0
+            ]
+        ]);
+    }
     
     // Parâmetros de filtro
     $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;

@@ -147,6 +147,15 @@ try {
             'message' => 'Erro ao criar sessão'
         ], 500);
     }
+    
+    // IMPORTANTE: Garantir que a sessão seja salva antes de enviar resposta
+    // session_write_close() força o PHP a salvar a sessão imediatamente
+    // Mas NÃO devemos fechar a sessão aqui, pois o PHP precisa enviar o cookie Set-Cookie
+    // Apenas garantir que os dados estão salvos
+    session_write_close();
+    
+    // Reabrir a sessão para garantir que está disponível
+    session_start();
 
     sendJsonResponse([
         'success' => true,
