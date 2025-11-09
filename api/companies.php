@@ -8,6 +8,9 @@ require_once __DIR__ . '/db.php';
 
 requireAuth();
 
+// Rate limiting
+requireRateLimit();
+
 $method = $_SERVER['REQUEST_METHOD'];
 $input = json_decode(file_get_contents('php://input'), true);
 
@@ -100,14 +103,15 @@ function handleCreateCompany($input) {
     try {
         $db = getDB();
         
-        $name = sanitizeInput($input['name'] ?? '');
-        $code = sanitizeInput($input['code'] ?? '');
-        $address = sanitizeInput($input['address'] ?? '');
-        $phone = sanitizeInput($input['phone'] ?? '');
-        $email = sanitizeInput($input['email'] ?? '');
-        $taxId = sanitizeInput($input['tax_id'] ?? '');
+        $name = trim(sanitizeInput($input['name'] ?? ''));
+        $code = trim(sanitizeInput($input['code'] ?? ''));
+        $address = trim(sanitizeInput($input['address'] ?? ''));
+        $phone = trim(sanitizeInput($input['phone'] ?? ''));
+        $email = trim(sanitizeInput($input['email'] ?? ''));
+        $taxId = trim(sanitizeInput($input['tax_id'] ?? ''));
         $isActive = isset($input['is_active']) ? (bool)$input['is_active'] : true;
         
+        // Validações
         if (empty($name)) {
             sendJsonResponse([
                 'success' => false,
@@ -115,11 +119,29 @@ function handleCreateCompany($input) {
             ], 400);
         }
         
+        // Validar email se fornecido
+        if (!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            sendJsonResponse([
+                'success' => false,
+                'message' => 'Email inválido'
+            ], 400);
+        }
+        
+        // Verificar se nome já existe (UNIQUE constraint)
+        $checkName = $db->prepare("SELECT id FROM companies WHERE name = :name");
+        $checkName->execute(['name' => $name]);
+        if ($checkName->fetch()) {
+            sendJsonResponse([
+                'success' => false,
+                'message' => 'Já existe uma empresa com este nome'
+            ], 409);
+        }
+        
         // Verificar se código já existe (se fornecido)
-        if ($code) {
-            $checkStmt = $db->prepare("SELECT id FROM companies WHERE code = :code");
-            $checkStmt->execute(['code' => $code]);
-            if ($checkStmt->fetch()) {
+        if (!empty($code)) {
+            $checkCode = $db->prepare("SELECT id FROM companies WHERE code = :code");
+            $checkCode->execute(['code' => $code]);
+            if ($checkCode->fetch()) {
                 sendJsonResponse([
                     'success' => false,
                     'message' => 'Código da empresa já existe'
@@ -133,15 +155,19 @@ function handleCreateCompany($input) {
         ");
         $stmt->execute([
             'name' => $name,
-            'code' => $code ?: null,
-            'address' => $address ?: null,
-            'phone' => $phone ?: null,
-            'email' => $email ?: null,
-            'tax_id' => $taxId ?: null,
+            'code' => !empty($code) ? $code : null,
+            'address' => !empty($address) ? $address : null,
+            'phone' => !empty($phone) ? $phone : null,
+            'email' => !empty($email) ? $email : null,
+            'tax_id' => !empty($taxId) ? $taxId : null,
             'is_active' => $isActive ? 1 : 0
         ]);
         
         $companyId = $db->lastInsertId();
+        
+        if (!$companyId) {
+            throw new Exception('Falha ao obter ID da empresa criada');
+        }
         
         $stmt = $db->prepare("
             SELECT id, name, code, address, phone, email, tax_id, is_active, created_at, updated_at
@@ -150,6 +176,10 @@ function handleCreateCompany($input) {
         $stmt->execute(['id' => $companyId]);
         $company = $stmt->fetch();
         
+        if (!$company) {
+            throw new Exception('Falha ao recuperar empresa criada');
+        }
+        
         sendJsonResponse([
             'success' => true,
             'message' => 'Empresa criada com sucesso',
@@ -157,10 +187,36 @@ function handleCreateCompany($input) {
         ], 201);
         
     } catch (PDOException $e) {
-        error_log("Create company error: " . $e->getMessage());
+        $errorCode = $e->getCode();
+        $errorMessage = $e->getMessage();
+        
+        // Detectar erros específicos do MySQL
+        if ($errorCode == 23000) { // Integrity constraint violation
+            if (strpos($errorMessage, 'Duplicate entry') !== false) {
+                if (strpos($errorMessage, 'name') !== false) {
+                    sendJsonResponse([
+                        'success' => false,
+                        'message' => 'Já existe uma empresa com este nome'
+                    ], 409);
+                } elseif (strpos($errorMessage, 'code') !== false) {
+                    sendJsonResponse([
+                        'success' => false,
+                        'message' => 'Código da empresa já existe'
+                    ], 409);
+                }
+            }
+        }
+        
+        error_log("Create company error: " . $errorMessage . " (Code: " . $errorCode . ")");
         sendJsonResponse([
             'success' => false,
-            'message' => 'Erro ao criar empresa'
+            'message' => 'Erro ao criar empresa: ' . $errorMessage
+        ], 500);
+    } catch (Exception $e) {
+        error_log("Create company general error: " . $e->getMessage());
+        sendJsonResponse([
+            'success' => false,
+            'message' => 'Erro ao criar empresa: ' . $e->getMessage()
         ], 500);
     }
 }

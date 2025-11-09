@@ -9,6 +9,9 @@ require_once __DIR__ . '/db.php';
 // Verificar autenticação (requireAuth já inicia a sessão se necessário)
 requireAuth();
 
+// Rate limiting
+requireRateLimit();
+
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDB();
 
@@ -100,9 +103,7 @@ try {
 
         case 'POST':
             // Criar nova sessão ou adicionar contagem
-            $rawInput = file_get_contents('php://input');
-            error_log("Session count POST - Raw input: " . $rawInput);
-            $input = json_decode($rawInput, true);
+            $input = json_decode(file_get_contents('php://input'), true);
             
             if (json_last_error() !== JSON_ERROR_NONE) {
                 error_log("Session count POST - JSON decode error: " . json_last_error_msg());
@@ -111,9 +112,6 @@ try {
                     'message' => 'Erro ao processar dados: ' . json_last_error_msg()
                 ], 400);
             }
-            
-            error_log("Session count POST - Parsed input: " . print_r($input, true));
-            error_log("Session count POST - User ID from session: " . ($_SESSION['user_id'] ?? 'NOT SET'));
 
             if (isset($input['name'])) {
                 // Criar nova sessão
@@ -122,10 +120,7 @@ try {
                 $companyId = intval($input['company_id'] ?? 0);
                 $warehouseId = intval($input['warehouse_id'] ?? 0);
 
-                error_log("Session count POST - Creating session: name=$name, company_id=$companyId, warehouse_id=$warehouseId");
-
                 if (empty($name)) {
-                    error_log("Session count POST - Error: Name is empty");
                     sendJsonResponse([
                         'success' => false,
                         'message' => 'Nome da sessão é obrigatório'
@@ -133,7 +128,6 @@ try {
                 }
 
                 if (!$companyId || !$warehouseId) {
-                    error_log("Session count POST - Error: Company or warehouse missing: company_id=$companyId, warehouse_id=$warehouseId");
                     sendJsonResponse([
                         'success' => false,
                         'message' => 'Empresa e armazém são obrigatórios'
@@ -145,30 +139,25 @@ try {
                 $checkCompany->execute(['id' => $companyId]);
                 $company = $checkCompany->fetch();
                 if (!$company) {
-                    error_log("Session count POST - Error: Company not found or inactive: id=$companyId");
                     sendJsonResponse([
                         'success' => false,
                         'message' => 'Empresa não encontrada ou inativa'
                     ], 404);
                 }
-                error_log("Session count POST - Company found: id=" . $company['id']);
 
                 // Verificar se armazém existe e pertence à empresa
                 $checkWarehouse = $db->prepare("SELECT id FROM warehouses WHERE id = :id AND company_id = :company_id AND is_active = 1");
                 $checkWarehouse->execute(['id' => $warehouseId, 'company_id' => $companyId]);
                 $warehouse = $checkWarehouse->fetch();
                 if (!$warehouse) {
-                    error_log("Session count POST - Error: Warehouse not found, inactive, or doesn't belong to company: id=$warehouseId, company_id=$companyId");
                     sendJsonResponse([
                         'success' => false,
                         'message' => 'Armazém não encontrado, inativo ou não pertence à empresa selecionada'
                     ], 404);
                 }
-                error_log("Session count POST - Warehouse found: id=" . $warehouse['id']);
 
                 $userId = $_SESSION['user_id'] ?? null;
                 if (!$userId) {
-                    error_log("Session count POST - Error: User ID not in session");
                     sendJsonResponse([
                         'success' => false,
                         'message' => 'Sessão de utilizador inválida. Por favor, faça login novamente.'
@@ -182,14 +171,17 @@ try {
                     ");
                     $stmt->execute([
                         'name' => $name,
-                        'description' => $description,
+                        'description' => !empty($description) ? $description : null,
                         'company_id' => $companyId,
                         'warehouse_id' => $warehouseId,
                         'user_id' => $userId
                     ]);
 
                     $sessionId = $db->lastInsertId();
-                    error_log("Session count POST - Session created successfully: id=$sessionId");
+
+                    if (!$sessionId) {
+                        throw new Exception('Falha ao obter ID da sessão criada');
+                    }
 
                     sendJsonResponse([
                         'success' => true,
@@ -197,8 +189,38 @@ try {
                         'session_id' => $sessionId
                     ], 201);
                 } catch (PDOException $e) {
-                    error_log("Session count POST - PDO error: " . $e->getMessage());
-                    error_log("Session count POST - PDO error trace: " . $e->getTraceAsString());
+                    $errorCode = $e->getCode();
+                    $errorMessage = $e->getMessage();
+                    
+                    // Detectar erros específicos do MySQL
+                    if ($errorCode == 23000) { // Integrity constraint violation
+                        if (strpos($errorMessage, 'FOREIGN KEY') !== false) {
+                            if (strpos($errorMessage, 'company_id') !== false) {
+                                sendJsonResponse([
+                                    'success' => false,
+                                    'message' => 'Empresa não encontrada ou inválida'
+                                ], 404);
+                            } elseif (strpos($errorMessage, 'warehouse_id') !== false) {
+                                sendJsonResponse([
+                                    'success' => false,
+                                    'message' => 'Armazém não encontrado ou inválido'
+                                ], 404);
+                            } elseif (strpos($errorMessage, 'user_id') !== false) {
+                                sendJsonResponse([
+                                    'success' => false,
+                                    'message' => 'Utilizador não encontrado ou inválido'
+                                ], 404);
+                            }
+                        }
+                    }
+                    
+                    error_log("Session count POST - PDO error: " . $errorMessage . " (Code: " . $errorCode . ")");
+                    sendJsonResponse([
+                        'success' => false,
+                        'message' => 'Erro ao criar sessão: ' . $errorMessage
+                    ], 500);
+                } catch (Exception $e) {
+                    error_log("Session count POST - General error: " . $e->getMessage());
                     sendJsonResponse([
                         'success' => false,
                         'message' => 'Erro ao criar sessão: ' . $e->getMessage()
@@ -312,11 +334,35 @@ try {
             ], 405);
     }
 } catch (PDOException $e) {
-    error_log("Session count error: " . $e->getMessage());
-    error_log("Session count error trace: " . $e->getTraceAsString());
+    $errorCode = $e->getCode();
+    $errorMessage = $e->getMessage();
+    
+    // Detectar erros específicos do MySQL
+    if ($errorCode == 23000) { // Integrity constraint violation
+        if (strpos($errorMessage, 'FOREIGN KEY') !== false) {
+            if (strpos($errorMessage, 'company_id') !== false) {
+                sendJsonResponse([
+                    'success' => false,
+                    'message' => 'Empresa não encontrada ou inválida'
+                ], 404);
+            } elseif (strpos($errorMessage, 'warehouse_id') !== false) {
+                sendJsonResponse([
+                    'success' => false,
+                    'message' => 'Armazém não encontrado ou inválido'
+                ], 404);
+            } elseif (strpos($errorMessage, 'user_id') !== false) {
+                sendJsonResponse([
+                    'success' => false,
+                    'message' => 'Utilizador não encontrado ou inválido'
+                ], 404);
+            }
+        }
+    }
+    
+    error_log("Session count error: " . $errorMessage . " (Code: " . $errorCode . ")");
     sendJsonResponse([
         'success' => false,
-        'message' => 'Erro ao processar pedido: ' . $e->getMessage()
+        'message' => 'Erro ao processar pedido: ' . $errorMessage
     ], 500);
 } catch (Exception $e) {
     error_log("Session count general error: " . $e->getMessage());

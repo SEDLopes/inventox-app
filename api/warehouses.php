@@ -8,6 +8,9 @@ require_once __DIR__ . '/db.php';
 
 requireAuth();
 
+// Rate limiting
+requireRateLimit();
+
 $method = $_SERVER['REQUEST_METHOD'];
 $input = json_decode(file_get_contents('php://input'), true);
 
@@ -117,34 +120,51 @@ function handleCreateWarehouse($input) {
         $db = getDB();
         
         $companyId = intval($input['company_id'] ?? 0);
-        $name = sanitizeInput($input['name'] ?? '');
-        $code = sanitizeInput($input['code'] ?? '');
-        $address = sanitizeInput($input['address'] ?? '');
-        $location = sanitizeInput($input['location'] ?? '');
+        $name = trim(sanitizeInput($input['name'] ?? ''));
+        $code = trim(sanitizeInput($input['code'] ?? ''));
+        $address = trim(sanitizeInput($input['address'] ?? ''));
+        $location = trim(sanitizeInput($input['location'] ?? ''));
         $isActive = isset($input['is_active']) ? (bool)$input['is_active'] : true;
         
-        if (!$companyId || empty($name)) {
+        // Validações
+        if (!$companyId) {
             sendJsonResponse([
                 'success' => false,
-                'message' => 'ID da empresa e nome do armazém são obrigatórios'
+                'message' => 'ID da empresa é obrigatório'
             ], 400);
         }
         
-        // Verificar se empresa existe
-        $checkCompany = $db->prepare("SELECT id FROM companies WHERE id = :id");
+        if (empty($name)) {
+            sendJsonResponse([
+                'success' => false,
+                'message' => 'Nome do armazém é obrigatório'
+            ], 400);
+        }
+        
+        // Verificar se empresa existe e está ativa
+        $checkCompany = $db->prepare("SELECT id, is_active FROM companies WHERE id = :id");
         $checkCompany->execute(['id' => $companyId]);
-        if (!$checkCompany->fetch()) {
+        $company = $checkCompany->fetch();
+        
+        if (!$company) {
             sendJsonResponse([
                 'success' => false,
                 'message' => 'Empresa não encontrada'
             ], 404);
         }
         
+        if (!$company['is_active']) {
+            sendJsonResponse([
+                'success' => false,
+                'message' => 'Não é possível criar armazém para empresa inativa'
+            ], 400);
+        }
+        
         // Verificar se código já existe para esta empresa (se fornecido)
-        if ($code) {
-            $checkStmt = $db->prepare("SELECT id FROM warehouses WHERE company_id = :company_id AND code = :code");
-            $checkStmt->execute(['company_id' => $companyId, 'code' => $code]);
-            if ($checkStmt->fetch()) {
+        if (!empty($code)) {
+            $checkCode = $db->prepare("SELECT id FROM warehouses WHERE company_id = :company_id AND code = :code");
+            $checkCode->execute(['company_id' => $companyId, 'code' => $code]);
+            if ($checkCode->fetch()) {
                 sendJsonResponse([
                     'success' => false,
                     'message' => 'Código do armazém já existe para esta empresa'
@@ -159,13 +179,17 @@ function handleCreateWarehouse($input) {
         $stmt->execute([
             'company_id' => $companyId,
             'name' => $name,
-            'code' => $code ?: null,
-            'address' => $address ?: null,
-            'location' => $location ?: null,
+            'code' => !empty($code) ? $code : null,
+            'address' => !empty($address) ? $address : null,
+            'location' => !empty($location) ? $location : null,
             'is_active' => $isActive ? 1 : 0
         ]);
         
         $warehouseId = $db->lastInsertId();
+        
+        if (!$warehouseId) {
+            throw new Exception('Falha ao obter ID do armazém criado');
+        }
         
         $stmt = $db->prepare("
             SELECT w.*, c.name as company_name
@@ -176,6 +200,10 @@ function handleCreateWarehouse($input) {
         $stmt->execute(['id' => $warehouseId]);
         $warehouse = $stmt->fetch();
         
+        if (!$warehouse) {
+            throw new Exception('Falha ao recuperar armazém criado');
+        }
+        
         sendJsonResponse([
             'success' => true,
             'message' => 'Armazém criado com sucesso',
@@ -183,10 +211,38 @@ function handleCreateWarehouse($input) {
         ], 201);
         
     } catch (PDOException $e) {
-        error_log("Create warehouse error: " . $e->getMessage());
+        $errorCode = $e->getCode();
+        $errorMessage = $e->getMessage();
+        
+        // Detectar erros específicos do MySQL
+        if ($errorCode == 23000) { // Integrity constraint violation
+            if (strpos($errorMessage, 'Duplicate entry') !== false) {
+                if (strpos($errorMessage, 'unique_company_warehouse') !== false || strpos($errorMessage, 'code') !== false) {
+                    sendJsonResponse([
+                        'success' => false,
+                        'message' => 'Código do armazém já existe para esta empresa'
+                    ], 409);
+                }
+            } elseif (strpos($errorMessage, 'FOREIGN KEY') !== false) {
+                if (strpos($errorMessage, 'company_id') !== false) {
+                    sendJsonResponse([
+                        'success' => false,
+                        'message' => 'Empresa não encontrada ou inválida'
+                    ], 404);
+                }
+            }
+        }
+        
+        error_log("Create warehouse error: " . $errorMessage . " (Code: " . $errorCode . ")");
         sendJsonResponse([
             'success' => false,
-            'message' => 'Erro ao criar armazém'
+            'message' => 'Erro ao criar armazém: ' . $errorMessage
+        ], 500);
+    } catch (Exception $e) {
+        error_log("Create warehouse general error: " . $e->getMessage());
+        sendJsonResponse([
+            'success' => false,
+            'message' => 'Erro ao criar armazém: ' . $e->getMessage()
         ], 500);
     }
 }

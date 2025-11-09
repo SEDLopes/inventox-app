@@ -1,7 +1,10 @@
 <?php
 /**
  * Endpoint para inicializar a database do InventoX
- * Acesse: https://sua-app.ondigitalocean.app/api/init_database.php?token=inventox2024
+ * 
+ * ⚠️ ATENÇÃO: Este endpoint requer token de segurança
+ * Use apenas uma vez para inicializar a database
+ * Em produção, considere remover após uso inicial
  */
 
 // Token de segurança - aceitar múltiplos tokens (compatibilidade com truncamento)
@@ -35,12 +38,7 @@ elseif (isset($_SERVER['QUERY_STRING'])) {
     $provided_token = $query_params['token'] ?? '';
 }
 
-// Debug (remover em produção se necessário)
-error_log("init_database.php - Token recebido: " . ($provided_token ?: 'VAZIO'));
-error_log("init_database.php - Tokens válidos: " . implode(', ', $valid_tokens));
-error_log("init_database.php - REQUEST_URI: " . ($_SERVER['REQUEST_URI'] ?? 'N/A'));
-error_log("init_database.php - QUERY_STRING: " . ($_SERVER['QUERY_STRING'] ?? 'N/A'));
-error_log("init_database.php - GET: " . print_r($_GET, true));
+// Debug removido para produção
 
 // Verificação flexível - aceitar tokens válidos (incluindo truncados)
 $provided_token_clean = trim($provided_token);

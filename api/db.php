@@ -10,6 +10,8 @@ ini_set('display_errors', 0); // Não mostrar erros no output
 ini_set('log_errors', 1);
 
 require_once __DIR__ . '/load_env.php';
+require_once __DIR__ . '/rate_limit.php';
+require_once __DIR__ . '/csrf.php';
 
 class Database {
     private static $instance = null;
@@ -165,20 +167,8 @@ function requireAuth() {
         session_start();
     }
     
-    // Debug: verificar cookies recebidos
-    $cookieName = session_name();
-    $hasSessionCookie = isset($_COOKIE[$cookieName]);
-    error_log("requireAuth - Session ID from cookie: " . ($hasSessionCookie ? $_COOKIE[$cookieName] : 'NOT SET') . ", Session ID active: " . session_id());
-    
     // Verificar se a sessão está realmente ativa e tem dados
     if (!isset($_SESSION['user_id']) || !isset($_SESSION['username'])) {
-        // Log detalhado para debug
-        error_log("Auth failed - Session status: " . session_status() . 
-                  ", Session ID: " . session_id() . 
-                  ", Cookie name: " . session_name() . 
-                  ", Has cookie: " . ($hasSessionCookie ? 'YES' : 'NO') . 
-                  ", User ID: " . ($_SESSION['user_id'] ?? 'not set') . 
-                  ", Session data: " . print_r($_SESSION, true));
         sendJsonResponse([
             'success' => false,
             'message' => 'Autenticação necessária'
