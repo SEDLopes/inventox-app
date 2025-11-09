@@ -200,6 +200,14 @@ function initEventListeners() {
                 if (form) {
                     form.reset();
                 }
+                // Carregar empresas e resetar armazém
+                loadCompaniesForSession();
+                const warehouseSelect = document.getElementById('newSessionWarehouse');
+                if (warehouseSelect) {
+                    warehouseSelect.innerHTML = '<option value="">Primeiro selecione uma empresa</option>';
+                    warehouseSelect.disabled = true;
+                    warehouseSelect.classList.add('bg-gray-100');
+                }
                 modal.classList.remove('hidden');
             }
         });
@@ -1343,6 +1351,103 @@ async function handleBarcode(barcode) {
     }
 }
 
+// Carregar Empresas para o Modal de Criação de Sessão
+async function loadCompaniesForSession() {
+    const companySelect = document.getElementById('newSessionCompany');
+    if (!companySelect) return;
+    
+    try {
+        companySelect.innerHTML = '<option value="">Carregando empresas...</option>';
+        const response = await fetch(`${API_BASE}/companies.php?active_only=true`, {
+            method: 'GET',
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.companies) {
+            companySelect.innerHTML = '<option value="">Selecione uma empresa...</option>';
+            
+            data.companies.forEach(company => {
+                const option = document.createElement('option');
+                option.value = company.id;
+                option.textContent = company.name + (company.code ? ` (${company.code})` : '');
+                companySelect.appendChild(option);
+            });
+        } else {
+            companySelect.innerHTML = '<option value="">Nenhuma empresa encontrada</option>';
+        }
+    } catch (error) {
+        logError('Erro ao carregar empresas:', error);
+        const companySelect = document.getElementById('newSessionCompany');
+        if (companySelect) {
+            companySelect.innerHTML = '<option value="">Erro ao carregar empresas</option>';
+        }
+    }
+}
+
+// Quando Empresa é Selecionada no Modal de Criação de Sessão
+async function handleNewSessionCompanyChange() {
+    const companyId = document.getElementById('newSessionCompany').value;
+    const warehouseSelect = document.getElementById('newSessionWarehouse');
+    
+    if (!companyId) {
+        if (warehouseSelect) {
+            warehouseSelect.innerHTML = '<option value="">Primeiro selecione uma empresa</option>';
+            warehouseSelect.disabled = true;
+            warehouseSelect.classList.add('bg-gray-100');
+        }
+        return;
+    }
+    
+    // Carregar armazéns da empresa
+    try {
+        if (warehouseSelect) {
+            warehouseSelect.innerHTML = '<option value="">Carregando armazéns...</option>';
+        }
+        
+        const response = await fetch(`${API_BASE}/warehouses.php?company_id=${companyId}&active_only=true`, {
+            method: 'GET',
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.warehouses) {
+            if (warehouseSelect) {
+                warehouseSelect.innerHTML = '<option value="">Selecione um armazém...</option>';
+                
+                data.warehouses.forEach(warehouse => {
+                    const option = document.createElement('option');
+                    option.value = warehouse.id;
+                    option.textContent = warehouse.name + (warehouse.code ? ` (${warehouse.code})` : '');
+                    warehouseSelect.appendChild(option);
+                });
+                
+                warehouseSelect.disabled = false;
+                warehouseSelect.classList.remove('bg-gray-100');
+            }
+        } else {
+            if (warehouseSelect) {
+                warehouseSelect.innerHTML = '<option value="">Nenhum armazém encontrado</option>';
+            }
+        }
+    } catch (error) {
+        logError('Erro ao carregar armazéns:', error);
+        if (warehouseSelect) {
+            warehouseSelect.innerHTML = '<option value="">Erro ao carregar armazéns</option>';
+        }
+    }
+}
+
 // Criar Sessão
 async function createSession() {
     const nameEl = document.getElementById('newSessionName');
@@ -1425,6 +1530,13 @@ async function createSession() {
             // Limpar formulário
             if (nameEl) nameEl.value = '';
             if (descriptionEl) descriptionEl.value = '';
+            if (companyEl) companyEl.value = '';
+            if (warehouseEl) {
+                warehouseEl.value = '';
+                warehouseEl.disabled = true;
+                warehouseEl.classList.add('bg-gray-100');
+                warehouseEl.innerHTML = '<option value="">Primeiro selecione uma empresa</option>';
+            }
             
             // Fechar modal
             const modal = document.getElementById('createSessionModal');
