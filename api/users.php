@@ -10,6 +10,9 @@ require_once __DIR__ . '/db.php';
 requireAuth();
 requireAdmin();
 
+// Rate limiting
+requireRateLimit();
+
 $method = $_SERVER['REQUEST_METHOD'];
 $input = json_decode(file_get_contents('php://input'), true);
 
@@ -218,10 +221,30 @@ function handleCreateUser($input) {
         ], 201);
         
     } catch (PDOException $e) {
-        error_log("Erro ao criar utilizador: " . $e->getMessage());
+        $errorCode = $e->getCode();
+        $errorMessage = $e->getMessage();
+        
+        // Detectar erros específicos do MySQL
+        if ($errorCode == 23000) { // Integrity constraint violation
+            if (strpos($errorMessage, 'Duplicate entry') !== false) {
+                if (strpos($errorMessage, 'username') !== false) {
+                    sendJsonResponse([
+                        'success' => false,
+                        'message' => 'Username já existe'
+                    ], 409);
+                } elseif (strpos($errorMessage, 'email') !== false) {
+                    sendJsonResponse([
+                        'success' => false,
+                        'message' => 'Email já existe'
+                    ], 409);
+                }
+            }
+        }
+        
+        error_log("Erro ao criar utilizador: " . $errorMessage . " (Code: " . $errorCode . ")");
         sendJsonResponse([
             'success' => false,
-            'message' => 'Erro ao criar utilizador'
+            'message' => 'Erro ao criar utilizador: ' . $errorMessage
         ], 500);
     } catch (Exception $e) {
         error_log("Erro ao criar utilizador: " . $e->getMessage());
@@ -373,10 +396,30 @@ function handleUpdateUser($input) {
         ]);
         
     } catch (PDOException $e) {
-        error_log("Erro ao atualizar utilizador: " . $e->getMessage());
+        $errorCode = $e->getCode();
+        $errorMessage = $e->getMessage();
+        
+        // Detectar erros específicos do MySQL
+        if ($errorCode == 23000) { // Integrity constraint violation
+            if (strpos($errorMessage, 'Duplicate entry') !== false) {
+                if (strpos($errorMessage, 'username') !== false) {
+                    sendJsonResponse([
+                        'success' => false,
+                        'message' => 'Username já existe'
+                    ], 409);
+                } elseif (strpos($errorMessage, 'email') !== false) {
+                    sendJsonResponse([
+                        'success' => false,
+                        'message' => 'Email já existe'
+                    ], 409);
+                }
+            }
+        }
+        
+        error_log("Erro ao atualizar utilizador: " . $errorMessage . " (Code: " . $errorCode . ")");
         sendJsonResponse([
             'success' => false,
-            'message' => 'Erro ao atualizar utilizador'
+            'message' => 'Erro ao atualizar utilizador: ' . $errorMessage
         ], 500);
     } catch (Exception $e) {
         error_log("Erro ao atualizar utilizador: " . $e->getMessage());
@@ -442,10 +485,23 @@ function handleDeleteUser($input) {
         ]);
         
     } catch (PDOException $e) {
-        error_log("Erro ao eliminar utilizador: " . $e->getMessage());
+        $errorCode = $e->getCode();
+        $errorMessage = $e->getMessage();
+        
+        // Detectar erros específicos do MySQL
+        if ($errorCode == 23000) { // Integrity constraint violation
+            if (strpos($errorMessage, 'FOREIGN KEY') !== false) {
+                sendJsonResponse([
+                    'success' => false,
+                    'message' => 'Não é possível eliminar utilizador com registos associados'
+                ], 409);
+            }
+        }
+        
+        error_log("Erro ao eliminar utilizador: " . $errorMessage . " (Code: " . $errorCode . ")");
         sendJsonResponse([
             'success' => false,
-            'message' => 'Erro ao eliminar utilizador'
+            'message' => 'Erro ao eliminar utilizador: ' . $errorMessage
         ], 500);
     } catch (Exception $e) {
         error_log("Erro ao eliminar utilizador: " . $e->getMessage());

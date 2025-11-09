@@ -9,6 +9,9 @@ require_once __DIR__ . '/db.php';
 // Verificar autenticação (requireAuth já inicia a sessão se necessário)
 requireAuth();
 
+// Rate limiting
+requireRateLimit();
+
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDB();
 
@@ -376,10 +379,38 @@ try {
             ], 405);
     }
 } catch (PDOException $e) {
-    error_log("Items API error: " . $e->getMessage());
+    $errorCode = $e->getCode();
+    $errorMessage = $e->getMessage();
+    
+    // Detectar erros específicos do MySQL
+    if ($errorCode == 23000) { // Integrity constraint violation
+        if (strpos($errorMessage, 'Duplicate entry') !== false) {
+            if (strpos($errorMessage, 'barcode') !== false) {
+                sendJsonResponse([
+                    'success' => false,
+                    'message' => 'Código de barras já existe'
+                ], 409);
+            }
+        } elseif (strpos($errorMessage, 'FOREIGN KEY') !== false) {
+            if (strpos($errorMessage, 'category_id') !== false) {
+                sendJsonResponse([
+                    'success' => false,
+                    'message' => 'Categoria não encontrada ou inválida'
+                ], 404);
+            }
+        }
+    }
+    
+    error_log("Items API error: " . $errorMessage . " (Code: " . $errorCode . ")");
     sendJsonResponse([
         'success' => false,
-        'message' => 'Erro ao processar pedido'
+        'message' => 'Erro ao processar pedido: ' . $errorMessage
+    ], 500);
+} catch (Exception $e) {
+    error_log("Items API general error: " . $e->getMessage());
+    sendJsonResponse([
+        'success' => false,
+        'message' => 'Erro ao processar pedido: ' . $e->getMessage()
     ], 500);
 }
 

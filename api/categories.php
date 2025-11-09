@@ -9,6 +9,9 @@ require_once __DIR__ . '/db.php';
 // Verificar autenticação (requireAuth já inicia a sessão se necessário)
 requireAuth();
 
+// Rate limiting
+requireRateLimit();
+
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDB();
 
@@ -223,10 +226,31 @@ try {
             ], 405);
     }
 } catch (PDOException $e) {
-    error_log("Categories API error: " . $e->getMessage());
+    $errorCode = $e->getCode();
+    $errorMessage = $e->getMessage();
+    
+    // Detectar erros específicos do MySQL
+    if ($errorCode == 23000) { // Integrity constraint violation
+        if (strpos($errorMessage, 'Duplicate entry') !== false) {
+            if (strpos($errorMessage, 'name') !== false) {
+                sendJsonResponse([
+                    'success' => false,
+                    'message' => 'Já existe uma categoria com este nome'
+                ], 409);
+            }
+        }
+    }
+    
+    error_log("Categories API error: " . $errorMessage . " (Code: " . $errorCode . ")");
     sendJsonResponse([
         'success' => false,
-        'message' => 'Erro ao processar pedido'
+        'message' => 'Erro ao processar pedido: ' . $errorMessage
+    ], 500);
+} catch (Exception $e) {
+    error_log("Categories API general error: " . $e->getMessage());
+    sendJsonResponse([
+        'success' => false,
+        'message' => 'Erro ao processar pedido: ' . $e->getMessage()
     ], 500);
 }
 
