@@ -155,11 +155,23 @@ function requireAuth() {
         
         // Configurar diretório de sessões (se não estiver configurado)
         $sessionPath = ini_get('session.save_path');
-        if (empty($sessionPath)) {
-            // Tentar usar diretório padrão ou criar um
-            $defaultPath = '/var/lib/php/sessions';
-            if (is_dir($defaultPath) || @mkdir($defaultPath, 1733, true)) {
-                ini_set('session.save_path', $defaultPath);
+        if (empty($sessionPath) || !is_dir($sessionPath) || !is_writable($sessionPath)) {
+            // Tentar vários diretórios possíveis
+            $possiblePaths = [
+                '/var/lib/php/sessions',  // Produção (Docker)
+                sys_get_temp_dir() . '/php_sessions',  // Desenvolvimento local
+                __DIR__ . '/../sessions',  // Relativo ao projeto
+                '/tmp/php_sessions'  // Fallback
+            ];
+            
+            foreach ($possiblePaths as $path) {
+                if (is_dir($path) && is_writable($path)) {
+                    ini_set('session.save_path', $path);
+                    break;
+                } elseif (@mkdir($path, 0755, true)) {
+                    ini_set('session.save_path', $path);
+                    break;
+                }
             }
         }
         
