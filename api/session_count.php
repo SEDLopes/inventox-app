@@ -67,20 +67,23 @@ try {
                     ], 404);
                 }
 
-                // Obter contagens da sessão
-                $stmt = $db->prepare("
-                    SELECT 
-                        c.*,
-                        i.barcode,
-                        i.name as item_name,
-                        i.quantity as current_quantity
-                    FROM inventory_counts c
-                    INNER JOIN items i ON c.item_id = i.id
-                    WHERE c.session_id = :session_id
-                    ORDER BY c.counted_at DESC
-                ");
-                $stmt->execute(['session_id' => $sessionId]);
-                $counts = $stmt->fetchAll();
+                // Obter contagens da sessão (verificar se tabela existe)
+                $counts = [];
+                if ($hasInventoryCounts) {
+                    $stmt = $db->prepare("
+                        SELECT 
+                            c.*,
+                            i.barcode,
+                            i.name as item_name,
+                            i.quantity as current_quantity
+                        FROM inventory_counts c
+                        INNER JOIN items i ON c.item_id = i.id
+                        WHERE c.session_id = :session_id
+                        ORDER BY c.counted_at DESC
+                    ");
+                    $stmt->execute(['session_id' => $sessionId]);
+                    $counts = $stmt->fetchAll();
+                }
 
                 $session['counts'] = $counts;
 
@@ -111,18 +114,25 @@ try {
                 if ($hasWarehouseCode) {
                     $selectFields[] = 'w.code as warehouse_code';
                 }
-                $selectFields[] = 'COUNT(co.id) as total_counts';
+                if ($hasInventoryCounts) {
+                    $selectFields[] = 'COUNT(co.id) as total_counts';
+                } else {
+                    $selectFields[] = '0 as total_counts';
+                }
                 
-                $stmt = $db->prepare("
+                $query = "
                     SELECT " . implode(', ', $selectFields) . "
                     FROM inventory_sessions s
                     LEFT JOIN users u ON s.user_id = u.id
                     LEFT JOIN companies c ON s.company_id = c.id
                     LEFT JOIN warehouses w ON s.warehouse_id = w.id
-                    LEFT JOIN inventory_counts co ON s.id = co.session_id
-                    GROUP BY s.id
-                    ORDER BY s.started_at DESC
-                ");
+                ";
+                if ($hasInventoryCounts) {
+                    $query .= "LEFT JOIN inventory_counts co ON s.id = co.session_id";
+                }
+                $query .= " GROUP BY s.id ORDER BY s.started_at DESC";
+                
+                $stmt = $db->prepare($query);
                 $stmt->execute();
                 $sessions = $stmt->fetchAll();
 
