@@ -217,8 +217,21 @@ function handleCreateWarehouse($input) {
             throw new Exception('Falha ao obter ID do armazém criado');
         }
         
+        // Verificar quais colunas existem antes de fazer SELECT
+        $checkColumns = $db->query("SHOW COLUMNS FROM warehouses");
+        $warehouseColumns = $checkColumns->fetchAll(PDO::FETCH_COLUMN);
+        
+        $selectFields = ['w.id', 'w.company_id', 'w.name'];
+        if (in_array('code', $warehouseColumns)) $selectFields[] = 'w.code';
+        if (in_array('address', $warehouseColumns)) $selectFields[] = 'w.address';
+        if (in_array('location', $warehouseColumns)) $selectFields[] = 'w.location';
+        if (in_array('is_active', $warehouseColumns)) $selectFields[] = 'w.is_active';
+        if (in_array('created_at', $warehouseColumns)) $selectFields[] = 'w.created_at';
+        if (in_array('updated_at', $warehouseColumns)) $selectFields[] = 'w.updated_at';
+        $selectFields[] = 'c.name as company_name';
+        
         $stmt = $db->prepare("
-            SELECT w.*, c.name as company_name
+            SELECT " . implode(', ', $selectFields) . "
             FROM warehouses w
             INNER JOIN companies c ON w.company_id = c.id
             WHERE w.id = :id
@@ -358,8 +371,21 @@ function handleUpdateWarehouse($input) {
         $stmt = $db->prepare($query);
         $stmt->execute($params);
         
+        // Verificar quais colunas existem antes de fazer SELECT
+        $checkColumns = $db->query("SHOW COLUMNS FROM warehouses");
+        $warehouseColumns = $checkColumns->fetchAll(PDO::FETCH_COLUMN);
+        
+        $selectFields = ['w.id', 'w.company_id', 'w.name'];
+        if (in_array('code', $warehouseColumns)) $selectFields[] = 'w.code';
+        if (in_array('address', $warehouseColumns)) $selectFields[] = 'w.address';
+        if (in_array('location', $warehouseColumns)) $selectFields[] = 'w.location';
+        if (in_array('is_active', $warehouseColumns)) $selectFields[] = 'w.is_active';
+        if (in_array('created_at', $warehouseColumns)) $selectFields[] = 'w.created_at';
+        if (in_array('updated_at', $warehouseColumns)) $selectFields[] = 'w.updated_at';
+        $selectFields[] = 'c.name as company_name';
+        
         $stmt = $db->prepare("
-            SELECT w.*, c.name as company_name
+            SELECT " . implode(', ', $selectFields) . "
             FROM warehouses w
             INNER JOIN companies c ON w.company_id = c.id
             WHERE w.id = :id
