@@ -296,6 +296,14 @@ try {
                 $expectedQuantity = $item['quantity'];
                 $difference = $countedQuantity - $expectedQuantity;
 
+                // Verificar se a tabela inventory_counts existe
+                if (!$hasInventoryCounts) {
+                    sendJsonResponse([
+                        'success' => false,
+                        'message' => 'Tabela inventory_counts não existe. Execute a migração da base de dados.'
+                    ], 500);
+                }
+                
                 // Inserir ou atualizar contagem
                 $stmt = $db->prepare("
                     INSERT INTO inventory_counts 
