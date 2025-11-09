@@ -6,14 +6,6 @@
 
 require_once __DIR__ . '/db.php';
 
-// Rate limiting para login (mais restritivo)
-if (!checkRateLimit('login_' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'))) {
-    sendJsonResponse([
-        'success' => false,
-        'message' => 'Muitas tentativas de login. Por favor, aguarde um momento.'
-    ], 429);
-}
-
 // Permitir apenas POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     sendJsonResponse([
@@ -43,6 +35,9 @@ if (empty($username) || empty($password)) {
 try {
     $db = getDB();
     
+    // Log de debug
+    error_log("Login attempt - Username: " . $username);
+    
     // Buscar utilizador (usar named parameter corretamente para OR)
     $stmt = $db->prepare("
         SELECT id, username, email, password_hash, role, is_active 
@@ -52,15 +47,21 @@ try {
     $stmt->execute(['username' => $username, 'email' => $username]);
     $user = $stmt->fetch();
 
+    // Log de debug
     if (!$user) {
+        error_log("Login failed - User not found: " . $username);
         sendJsonResponse([
             'success' => false,
-            'message' => 'Credenciais inválidas'
+            'message' => 'Credenciais inválidas',
+            'debug' => 'Utilizador não encontrado'
         ], 401);
     }
+    
+    error_log("Login - User found: " . $user['username'] . ", Active: " . ($user['is_active'] ? 'YES' : 'NO'));
 
     // Verificar se utilizador está ativo
     if (!$user['is_active']) {
+        error_log("Login failed - User inactive: " . $username);
         sendJsonResponse([
             'success' => false,
             'message' => 'Utilizador inativo'
@@ -69,11 +70,15 @@ try {
 
     // Verificar password
     $passwordValid = password_verify($password, $user['password_hash']);
+    error_log("Login - Password verification: " . ($passwordValid ? 'OK' : 'FAILED') . 
+              ", Hash length: " . strlen($user['password_hash']));
     
     if (!$passwordValid) {
+        error_log("Login failed - Invalid password for user: " . $username);
         sendJsonResponse([
             'success' => false,
-            'message' => 'Credenciais inválidas'
+            'message' => 'Credenciais inválidas',
+            'debug' => 'Password não corresponde'
         ], 401);
     }
 
@@ -114,7 +119,7 @@ try {
     // Configurar diretório de sessões (se não estiver configurado)
     $sessionPath = ini_get('session.save_path');
     if (empty($sessionPath) || !is_dir($sessionPath) || !is_writable($sessionPath)) {
-        // Tentar vários diretórios possíveis
+        // Tentar vários diretórios possíveis (melhorado do dia 4, mas mantendo simplicidade)
         $possiblePaths = [
             '/var/lib/php/sessions',  // Produção (Docker)
             sys_get_temp_dir() . '/php_sessions',  // Desenvolvimento local
@@ -151,6 +156,14 @@ try {
     // Garantir que a sessão foi escrita (PHP faz isso automaticamente ao finalizar script)
     // Mas vamos verificar que os dados estão realmente na sessão
     
+    // Log de login para debug
+    $cookieName = session_name();
+    $sessionId = session_id();
+    error_log("Login successful - Session ID: " . $sessionId . 
+              ", Cookie name: " . $cookieName . 
+              ", User: {$user['username']}, " .
+              "Session has user_id: " . (isset($_SESSION['user_id']) ? 'YES' : 'NO'));
+    
     // Verificar se os dados estão na sessão
     if (!isset($_SESSION['user_id']) || !isset($_SESSION['username'])) {
         error_log("ERRO CRÍTICO: Dados da sessão não foram salvos após login!");
@@ -185,4 +198,3 @@ try {
         'message' => 'Erro ao processar login: ' . $e->getMessage()
     ], 500);
 }
-

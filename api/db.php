@@ -10,8 +10,6 @@ ini_set('display_errors', 0); // Não mostrar erros no output
 ini_set('log_errors', 1);
 
 require_once __DIR__ . '/load_env.php';
-require_once __DIR__ . '/rate_limit.php';
-require_once __DIR__ . '/csrf.php';
 
 class Database {
     private static $instance = null;
@@ -154,54 +152,46 @@ function requireAuth() {
         }
         
         // Configurar diretório de sessões (se não estiver configurado)
-        // IMPORTANTE: Usar o mesmo diretório que login.php usa
-        // CRÍTICO: Sempre configurar, mesmo que já esteja configurado, para garantir consistência
-        $possiblePaths = [
-            '/var/lib/php/sessions',  // Produção (Docker)
-            sys_get_temp_dir() . '/php_sessions',  // Desenvolvimento local
-            __DIR__ . '/../sessions',  // Relativo ao projeto
-            '/tmp/php_sessions'  // Fallback
-        ];
-        
+        // VERSÃO DO DIA 4: Mais simples, mas com suporte para múltiplos diretórios
         $sessionPath = ini_get('session.save_path');
-        $pathSet = false;
-        
-        // Se já está configurado e é válido, usar
-        if (!empty($sessionPath) && is_dir($sessionPath) && is_writable($sessionPath)) {
-            $pathSet = true;
-        } else {
-            // Tentar vários diretórios possíveis (na mesma ordem que login.php)
+        if (empty($sessionPath) || !is_dir($sessionPath) || !is_writable($sessionPath)) {
+            // Tentar vários diretórios possíveis
+            $possiblePaths = [
+                '/var/lib/php/sessions',  // Produção (Docker)
+                sys_get_temp_dir() . '/php_sessions',  // Desenvolvimento local
+                __DIR__ . '/../sessions',  // Relativo ao projeto
+                '/tmp/php_sessions'  // Fallback
+            ];
+            
             foreach ($possiblePaths as $path) {
                 if (is_dir($path) && is_writable($path)) {
                     ini_set('session.save_path', $path);
-                    $pathSet = true;
                     break;
                 } elseif (@mkdir($path, 0755, true)) {
                     ini_set('session.save_path', $path);
-                    $pathSet = true;
                     break;
                 }
             }
         }
         
-        // Se não conseguimos configurar um caminho, usar o padrão do sistema
-        if (!$pathSet) {
-            error_log("requireAuth - WARNING: Não foi possível configurar session.save_path, usando padrão do sistema");
-        }
-        
-        // Iniciar sessão (isso vai ler o cookie PHPSESSID se existir)
+        // Iniciar sessão
         session_start();
     }
     
+    // Debug: verificar cookies recebidos (VERSÃO DO DIA 4 - logs detalhados)
+    $cookieName = session_name();
+    $hasSessionCookie = isset($_COOKIE[$cookieName]);
+    error_log("requireAuth - Session ID from cookie: " . ($hasSessionCookie ? $_COOKIE[$cookieName] : 'NOT SET') . ", Session ID active: " . session_id());
+    
     // Verificar se a sessão está realmente ativa e tem dados
-    // IMPORTANTE: Verificar se $_SESSION existe e tem os dados necessários
-    if (!isset($_SESSION) || !isset($_SESSION['user_id']) || !isset($_SESSION['username'])) {
-        // Log para debug (apenas em desenvolvimento)
-        if (getenv('DEBUG_MODE') === 'true' || ($_ENV['DEBUG_MODE'] ?? 'false') === 'true') {
-            error_log("requireAuth - Sessão não autenticada. Session ID: " . session_id() . ", Session status: " . session_status());
-            error_log("requireAuth - Cookies recebidos: " . print_r($_COOKIE, true));
-            error_log("requireAuth - Session save path: " . ini_get('session.save_path'));
-        }
+    if (!isset($_SESSION['user_id']) || !isset($_SESSION['username'])) {
+        // Log detalhado para debug (VERSÃO DO DIA 4)
+        error_log("Auth failed - Session status: " . session_status() . 
+                  ", Session ID: " . session_id() . 
+                  ", Cookie name: " . session_name() . 
+                  ", Has cookie: " . ($hasSessionCookie ? 'YES' : 'NO') . 
+                  ", User ID: " . ($_SESSION['user_id'] ?? 'not set') . 
+                  ", Session data: " . print_r($_SESSION, true));
         sendJsonResponse([
             'success' => false,
             'message' => 'Autenticação necessária'
@@ -221,4 +211,3 @@ function requireAdmin() {
         ], 403);
     }
 }
-
